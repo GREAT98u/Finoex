@@ -1,0 +1,184 @@
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+
+enum AccountType {
+  CASH
+  BANK
+  WALLET
+  CREDIT
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum InsightType {
+  ALERT
+  SUGGESTION
+  PREDICTION
+}
+
+
+model User {
+  id          String   @id @default(uuid())
+  clerkUserId String   @unique
+  email       String?
+  name        String?
+  createdAt   DateTime @default(now())
+
+  accounts         Account[]
+  categories       Category[]
+  transactions     Transaction[]
+  budgets          Budget[]
+  insights         Insight[]
+  
+  categoryLearning CategoryLearning[]
+
+  preferences      UserPreference?
+
+  @@map("users")
+}
+
+
+model Account {
+  id        String      @id @default(uuid())
+  userId    String
+  name      String
+  type      AccountType
+  createdAt DateTime    @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+
+model Category {
+  id        String       @id @default(uuid())
+  userId    String
+  name      String
+  type      CategoryType
+  createdAt DateTime     @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+  learning     CategoryLearning[]
+
+  @@unique([userId, name])
+  @@map("categories")
+}
+
+
+model Transaction {
+  id              String          @id @default(uuid())
+  userId          String
+  accountId       String?
+  categoryId      String?
+  amount          Decimal         @db.Decimal(12, 2)
+  type            TransactionType
+  description     String?
+  transactionDate DateTime
+  createdAt       DateTime        @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account     Account? @relation(fields: [accountId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
+  anomalyFlag AnomalyFlag?
+
+  @@index([userId, transactionDate])
+  @@index([categoryId])
+  @@map("transactions")
+}
+
+
+model Budget {
+  id           String   @id @default(uuid())
+  userId       String
+  categoryId   String
+  monthlyLimit Decimal  @db.Decimal(12, 2)
+  month        Int
+  year         Int
+  createdAt    DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, categoryId, month, year])
+  @@map("budgets")
+}
+
+
+model Insight {
+  id             String      @id @default(uuid())
+  userId         String
+  type           InsightType
+  title          String
+  message        String
+  severity       Int?
+  referenceMonth Int?
+  referenceYear  Int?
+  createdAt      DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("insights")
+}
+
+
+model AnomalyFlag {
+  id            String   @id @default(uuid())
+  transactionId String  @unique
+  reason        String?
+  score         Decimal? @db.Decimal(5, 2)
+  createdAt     DateTime @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("anomaly_flags")
+}
+
+
+model CategoryLearning {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  keyword    String
+  confidence Decimal? @db.Decimal(3, 2)
+  updatedAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([userId])
+  @@map("category_learning")
+}
+
+
+model UserPreference {
+  userId        String   @id
+  currency      String   @default("INR")
+  monthStartDay Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
